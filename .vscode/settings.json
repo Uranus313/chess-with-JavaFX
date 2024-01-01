@@ -1,0 +1,12 @@
+{
+    "java.project.sourcePaths": ["src"],
+    "java.project.outputPath": "bin",
+    "java.project.referencedLibraries": {
+        "include": [
+            "C:\\Users\\MEHRBOD\\OneDrive\\Documents\\GitHub\\javafx-sdk-21.0.1\\lib/**/*.jar",
+        ],
+        "exclude": [
+            "lib/javafx-sdk-21.0.1/lib/javafx-swt.jar"
+        ]
+    }
+}
