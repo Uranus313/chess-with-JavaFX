@@ -372,7 +372,7 @@ class CustomButton extends Button{
         }
     }
     public void getRange(){};
-    public void movePiece(){};
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){};
 }
 class Pawn extends CustomButton{
     public boolean hasMoved = false;
@@ -391,6 +391,14 @@ class Pawn extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: blue;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new Pawn(allButtons, team,true,teamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
         this.setOnAction(e ->{
             if((turn+1)%2 == this.team%2){
@@ -559,9 +567,8 @@ class Pawn extends CustomButton{
         }  
         });
     }
-    public void movePiece(){
-        
-    }
+    
+    
     public void changePiece(CustomButton piece,int y,int x){
                 piece = new Pawn(allButtons, team,true, teamMoves);
                 allButtons[y][x]= new CustomButton(allButtons);
@@ -610,6 +617,14 @@ class Bishop extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: silver;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new Bishop(allButtons, team,teamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
         this.setOnAction(e ->{
             
@@ -921,6 +936,14 @@ class Knight extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: purple;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new Knight(allButtons, team,teamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -1198,6 +1221,14 @@ class Queen extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: pink;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new Queen(allButtons, team,teamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -1724,6 +1755,14 @@ class Rook extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: orange;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new Rook(allButtons, team,teamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -2009,6 +2048,14 @@ class King extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: gold;");
     }
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+        allButtons[endRow][endColumn] = new King(allButtons, team,teamMoves,enemyTeamMoves);
+        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    };
     public void actionSet(){
 
         this.setOnAction(e ->{
