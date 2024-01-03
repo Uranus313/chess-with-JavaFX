@@ -1,6 +1,8 @@
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.Stack;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -12,6 +14,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -184,13 +187,117 @@ class ButtonWrapper{
         this.button = button;
     }
 }
+enum Player{
+    White,
+    Black
+}
+enum Piece{
+    Pawn,
+    Bishop,
+    Knight,
+    Queen,
+    Rook,
+    King
+}
+class TreeNode{
+    Object data;
+    ArrayList<TreeNode> childNodes;
+    Player player;
+    Piece piece;
+    int startRow;
+    int startColumn;
+    int endRow;
+    int endColumn;
+    TreeNode parentNode;
+    CustomButton[][]allButtons;
+    VBox vBox;
+    HBox hBox;
+    public TreeNode(Player player, Piece piece, int startRow, int startColumn, int endRow, int endColumn,CustomButton[][]allButtons, TreeNode parentNode) {
+        this.player = player;
+        this.piece = piece;
+        this.startRow = startRow;
+        this.startColumn = startColumn;
+        this.endRow = endRow;
+        this.endColumn = endColumn;
+        this.allButtons = new CustomButton[8][8];
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                this.allButtons[i][j]=allButtons[i][j];
+            }
+        }
+        this.parentNode = parentNode;
+        childNodes = new ArrayList<TreeNode>();
+        vBox = new VBox(new Label(""+player+" "+piece+" "+startRow+startColumn+":"+endRow+endColumn));
+        hBox = new HBox();
+        vBox.getChildren().add(hBox);
+    }
+    public TreeNode(CustomButton[][]allButtons){
+        this.allButtons = new CustomButton[8][8];
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                this.allButtons[i][j]=allButtons[i][j];
+            }
+        }
+        childNodes = new ArrayList<TreeNode>();
+        vBox = new VBox(new Label("start"));
+        hBox = new HBox();
+        vBox.getChildren().add(hBox);
+    }
+}
+class Tree{
+    TreeNode head;
+    Scene scene;
+    Tree(CustomButton[][] allButtons){
+        this.head = new TreeNode(allButtons);
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(head.vBox);
+        scene = new Scene(scrollPane);
+    }
+    public VBox getTree(){
+        loadTree(head);
+        return head.vBox;
+
+    }
+    public void loadTree(TreeNode node){
+        node.hBox.getChildren().clear();
+        for(int i=0;i<node.childNodes.size();i++){
+            node.hBox.getChildren().add(node.childNodes.get(i).vBox);
+            loadTree(node.childNodes.get(i));
+        }
+    }
+    public void showTree(){
+        Stage stage = new Stage();
+        
+        loadTree(head);
+        
+        stage.setMinHeight(200);
+        stage.setMinWidth(200);
+        stage.setScene(scene);
+        stage.show();
+    }
+}
 class Game {
     LinkedHashSet team1Moves;
     LinkedHashSet team2Moves;
+    public static TreeNode currentNode;
+    public Tree tree;
+    Stack<TreeNode> undoStack;
     Game(GridPane gridPane){
         team1Moves = new LinkedHashSet<Integer>();
         team2Moves = new LinkedHashSet<Integer>();
+        undoStack = new Stack<TreeNode>();
         CustomButton allButtons[][] = new CustomButton[8][8];
+        
+        Button showTreeButton = new Button("show tree");
+        showTreeButton.setOnAction(e -> tree.showTree());
+        HBox hBox = (HBox)borderPane.getChildren().get(3);
+        hBox.getChildren().add(showTreeButton);
+        Button undoButton = new Button("undo");
+        undoButton.setOnAction(e -> this.undo(gridPane, allButtons));
+        hBox.getChildren().add(undoButton);
+        Button redoButton = new Button("redo");
+        redoButton.setOnAction(e -> this.redo(gridPane, allButtons));
+        hBox.getChildren().add(redoButton);
         for(int i=0;i<8;i++){
             for(int j=0;j<8;j++){
                 final int I = i;
@@ -278,11 +385,54 @@ class Game {
         gridPane.add(allButtons[0][3], 3, 0);
         // allButtons[0][4].updateRange(2,team2Moves);
         allButtons[0][4].updateRange(4, team2Moves);
-        System.out.println(allButtons[0][4].getClass().toString().equals("class King"));
+        tree = new Tree(allButtons);
+        currentNode= tree.head;
+        System.out.println(tree.head.allButtons[1][1].getClass());
         // System.out.println(team2Moves);
         // if(team2Moves.contains(37)){
         //     System.out.println("true");
         // }
+    }
+    public void redo(GridPane gridPane, CustomButton[][] allButtons){
+        if(undoStack.isEmpty()){
+            return;
+        }
+        gridPane.getChildren().clear();
+        currentNode = undoStack.pop();
+        System.out.println("test");
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                allButtons[i][j]=currentNode.allButtons[i][j];
+                gridPane.add(allButtons[i][j], j, i);
+            }
+        }
+        new CustomButton(allButtons).fire();
+        CustomButton.turn++;
+        
+        HBox topBox = (HBox)borderPane.getChildren().get(3);
+        Label timeLabel = (Label)topBox.getChildren().get(0);
+        timeLabel.setText("30");
+    }
+    public void undo(GridPane gridPane, CustomButton[][] allButtons){
+        if(currentNode==tree.head){
+            return;
+        }
+        gridPane.getChildren().clear();
+        undoStack.add(currentNode);
+        currentNode = currentNode.parentNode;
+        System.out.println("test");
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                allButtons[i][j]=currentNode.allButtons[i][j];
+                gridPane.add(allButtons[i][j], j, i);
+            }
+        }
+        new CustomButton(allButtons).fire();
+        CustomButton.turn--;
+        
+        HBox topBox = (HBox)borderPane.getChildren().get(3);
+        Label timeLabel = (Label)topBox.getChildren().get(0);
+        timeLabel.setText("30");
     }
 }
 class CustomButton extends Button{
@@ -469,6 +619,7 @@ class Pawn extends CustomButton{
         HBox topBox = (HBox)borderPane.getChildren().get(3);
         Label timeLabel = (Label)topBox.getChildren().get(0);
         timeLabel.setText("30");
+        
         gridPane.getChildren().remove(allButtons[endRow][endColumn]);
         gridPane.getChildren().remove(allButtons[startRow][startColumn]);
         if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
@@ -500,6 +651,25 @@ class Pawn extends CustomButton{
                 allButtons[i][j].En_Passant_right=false;
             }
         }
+        Player player;
+        if(team==1){
+            player = Player.White;
+        }else{
+            player = Player.Black;
+        }
+        TreeNode newNode = new TreeNode(player, Piece.Pawn, startRow, startColumn, endRow, endColumn, allButtons,Game.currentNode);
+        boolean repeatChecker= false;
+        
+        for(int i=0;i<Game.currentNode.childNodes.size();i++){
+            if(Game.currentNode.childNodes.get(i).startRow == newNode.startRow && Game.currentNode.childNodes.get(i).startColumn == newNode.startColumn && Game.currentNode.childNodes.get(i).endRow == newNode.endRow && Game.currentNode.childNodes.get(i).endColumn == newNode.endColumn ){
+                repeatChecker=true;
+                break;
+            }
+        }
+        if(!repeatChecker){
+            Game.currentNode.childNodes.add(newNode);
+        }
+        Game.currentNode= newNode;
         new CustomButton(allButtons).fire();
         
         
