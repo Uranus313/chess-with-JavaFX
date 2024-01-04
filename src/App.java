@@ -15,10 +15,16 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -208,17 +214,20 @@ class TreeNode{
     int startColumn;
     int endRow;
     int endColumn;
+    int turn;
+    Button skipButton;
     TreeNode parentNode;
     CustomButton[][]allButtons;
     VBox vBox;
     HBox hBox;
-    public TreeNode(Player player, Piece piece, int startRow, int startColumn, int endRow, int endColumn,CustomButton[][]allButtons, TreeNode parentNode) {
+    public TreeNode(Player player, Piece piece, int startRow, int startColumn, int endRow, int endColumn,CustomButton[][]allButtons, TreeNode parentNode, int turn) {
         this.player = player;
         this.piece = piece;
         this.startRow = startRow;
         this.startColumn = startColumn;
         this.endRow = endRow;
         this.endColumn = endColumn;
+        this.turn = turn;
         this.allButtons = new CustomButton[8][8];
         for(int i=0;i<8;i++){
             for(int j=0;j<8;j++){
@@ -226,10 +235,14 @@ class TreeNode{
             }
         }
         this.parentNode = parentNode;
+        this.skipButton= new Button(""+player+" "+piece+" "+startRow+startColumn+":"+endRow+endColumn);
         childNodes = new ArrayList<TreeNode>();
-        vBox = new VBox(new Label(""+player+" "+piece+" "+startRow+startColumn+":"+endRow+endColumn));
+        vBox = new VBox(skipButton);
         hBox = new HBox();
         vBox.getChildren().add(hBox);
+        vBox.setAlignment(Pos.TOP_CENTER);
+        hBox.setAlignment(Pos.TOP_CENTER);
+        vBox.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.DASHED, new CornerRadii(5), new BorderWidths(1))));
     }
     public TreeNode(CustomButton[][]allButtons){
         this.allButtons = new CustomButton[8][8];
@@ -238,10 +251,32 @@ class TreeNode{
                 this.allButtons[i][j]=allButtons[i][j];
             }
         }
+        turn=0;
         childNodes = new ArrayList<TreeNode>();
-        vBox = new VBox(new Label("start"));
+        this.skipButton= new Button("start");
+        vBox = new VBox(skipButton);
         hBox = new HBox();
         vBox.getChildren().add(hBox);
+        vBox.setAlignment(Pos.TOP_CENTER);
+        hBox.setAlignment(Pos.TOP_CENTER);
+    }
+    public void timeSkip(GridPane gridPane, CustomButton[][] allButtons){
+        gridPane.getChildren().clear();
+        Game.undoStack.clear();
+        Game.currentNode = this;
+        System.out.println("test");
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                allButtons[i][j]=this.allButtons[i][j];
+                gridPane.add(allButtons[i][j], j, i);
+            }
+        }
+        new CustomButton(allButtons).fire();
+        CustomButton.turn=this.turn;
+        BorderPane borderPane = (BorderPane)gridPane.getParent();
+        HBox topBox = (HBox)borderPane.getChildren().get(3);
+        Label timeLabel = (Label)topBox.getChildren().get(0);
+        timeLabel.setText("30");
     }
 }
 class Tree{
@@ -251,6 +286,8 @@ class Tree{
         this.head = new TreeNode(allButtons);
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setContent(head.vBox);
+        // scrollPane.setHvalue(0.5);
+        // scrollPane.setVvalue(0.5);
         scene = new Scene(scrollPane);
     }
     public VBox getTree(){
@@ -275,19 +312,19 @@ class Tree{
         stage.setScene(scene);
         stage.show();
     }
+    
 }
 class Game {
     LinkedHashSet team1Moves;
     LinkedHashSet team2Moves;
     public static TreeNode currentNode;
     public Tree tree;
-    Stack<TreeNode> undoStack;
+    public static Stack<TreeNode> undoStack;
     Game(GridPane gridPane){
         team1Moves = new LinkedHashSet<Integer>();
         team2Moves = new LinkedHashSet<Integer>();
         undoStack = new Stack<TreeNode>();
-        CustomButton allButtons[][] = new CustomButton[8][8];
-        
+        CustomButton allButtons[][] = new CustomButton[8][8];  
         Button showTreeButton = new Button("show tree");
         showTreeButton.setOnAction(e -> tree.showTree());
         HBox hBox = (HBox)borderPane.getChildren().get(3);
@@ -298,6 +335,7 @@ class Game {
         Button redoButton = new Button("redo");
         redoButton.setOnAction(e -> this.redo(gridPane, allButtons));
         hBox.getChildren().add(redoButton);
+        
         for(int i=0;i<8;i++){
             for(int j=0;j<8;j++){
                 final int I = i;
@@ -387,6 +425,7 @@ class Game {
         allButtons[0][4].updateRange(4, team2Moves);
         tree = new Tree(allButtons);
         currentNode= tree.head;
+        tree.head.skipButton.setOnAction(e -> tree.head.timeSkip(gridPane, allButtons));
         System.out.println(tree.head.allButtons[1][1].getClass());
         // System.out.println(team2Moves);
         // if(team2Moves.contains(37)){
@@ -434,6 +473,7 @@ class Game {
         Label timeLabel = (Label)topBox.getChildren().get(0);
         timeLabel.setText("30");
     }
+    
 }
 class CustomButton extends Button{
     static GridPane gridPane;
@@ -531,7 +571,45 @@ class CustomButton extends Button{
             System.out.println("fast");
             return false;
         }
-        CustomButton c = new CustomButton(allButtons);
+        // CustomButton c = new CustomButton(allButtons);
+        // for(int y=0;y<8;y++){
+        //     for(int x=0;x<8;x++){
+        //         if(this.allButtons[y][x].team==team){
+        //             this.allButtons[y][x].getRange();
+        //             for(int move : allButtons[y][x].teamMoves){
+        //                 int cMove= move%10;
+        //                 int rMove = (move-cMove)/10; 
+        //                 if(allButtons[rMove][cMove].team==team){
+        //                     continue;
+        //                 }
+        //                 // CustomButton startPos = allButtons[y][x];
+        //                 // CustomButton finalPos = allButtons[rMove][cMove];
+        //                 // allButtons[rMove][cMove] = new Pawn(allButtons, team,true,teamMoves);
+        //                 // allButtons[y][x] = c;
+
+        //                 // if(!checkKingMove(row, column,team, enemyMoves)){
+        //                 //     allButtons[y][x] = startPos;
+        //                 //     allButtons[rMove][cMove] = finalPos;
+        //                 //     System.out.println((y*10)+x);
+        //                 //     System.out.println("start");
+        //                 //     System.out.println((rMove*10)+cMove);
+        //                 //     System.out.println("end");
+        //                 //     return false;
+        //                 // }
+        //                 // allButtons[y][x] = startPos;
+        //                 // allButtons[rMove][cMove] = finalPos;
+        //                 if(possibleMove(team, y, x, rMove, cMove)){
+        //                     return false;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        // System.out.println("check");
+        // return true;
+        return(staleMate(row, column, team, enemyMoves));
+    }
+    public boolean staleMate(int row,int column,int team,LinkedHashSet enemyMoves){
         for(int y=0;y<8;y++){
             for(int x=0;x<8;x++){
                 if(this.allButtons[y][x].team==team){
@@ -542,20 +620,9 @@ class CustomButton extends Button{
                         if(allButtons[rMove][cMove].team==team){
                             continue;
                         }
-                        CustomButton startPos = allButtons[y][x];
-                        CustomButton finalPos = allButtons[rMove][cMove];
-                        allButtons[rMove][cMove] = new Pawn(allButtons, team,true,teamMoves);
-                        allButtons[y][x] = c;
-
-                        if(!checkKingMove(row, column,team, enemyMoves)){
-                            allButtons[y][x] = startPos;
-                            allButtons[rMove][cMove] = finalPos;
-                            System.out.println((y*10)+x);
-                            System.out.println((rMove*10)+cMove);
+                        if(possibleMove(team, y, x, rMove, cMove)){
                             return false;
                         }
-                        allButtons[y][x] = startPos;
-                        allButtons[rMove][cMove] = finalPos;
                     }
                 }
             }
@@ -590,26 +657,7 @@ class CustomButton extends Button{
         }
     }
     public void getRange(){};
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){};
-}
-class Pawn extends CustomButton{
-    public boolean hasMoved = false;
-    Pawn(CustomButton allButtons[][],int team,boolean hasMoved,LinkedHashSet teamMoves){
-        super(allButtons,team,teamMoves);
-        this.hasMoved = hasMoved;
-        this.actionSet();
-        this.setText("PAWN");
-        if(team==2){
-        this.setStyle("-fx-background-color:blue;");
-        
-        }else{
-            this.setStyle("-fx-background-color:red;");
-        }
-    }
-    public void recolor(){
-        this.setStyle("-fx-background-color: blue;");
-    }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn,Piece piece){
         HBox leftBox =(HBox)borderPane.getChildren().get(1);
         VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
         VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
@@ -641,7 +689,29 @@ class Pawn extends CustomButton{
                 }
             }
         }
-        allButtons[endRow][endColumn] = new Pawn(allButtons, team,true,allTeamMoves);
+        switch (piece) {
+            case Pawn:
+                allButtons[endRow][endColumn] = new Pawn(allButtons, team,true,allTeamMoves);
+                break;
+            case Bishop:
+                allButtons[endRow][endColumn] = new Bishop(allButtons, team,allTeamMoves);
+                break;
+            case Knight:
+                allButtons[endRow][endColumn] = new Knight(allButtons, team,allTeamMoves);
+                break;
+            case Queen:
+                allButtons[endRow][endColumn] = new Queen(allButtons, team,allTeamMoves);
+                break;
+            case Rook:
+                allButtons[endRow][endColumn] = new Rook(allButtons, team,true,allTeamMoves);
+                break;
+            case King:
+                King king = (King)allButtons[startRow][startColumn];
+                allButtons[endRow][endColumn] = new King(allButtons, team,true,allTeamMoves,king.enemyTeamMoves);
+                break;                
+            default:
+                break;
+        }
         allButtons[startRow][startColumn] = new CustomButton(allButtons);  
         gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
         gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
@@ -657,23 +727,146 @@ class Pawn extends CustomButton{
         }else{
             player = Player.Black;
         }
-        TreeNode newNode = new TreeNode(player, Piece.Pawn, startRow, startColumn, endRow, endColumn, allButtons,Game.currentNode);
+        TreeNode newNode = new TreeNode(player, piece, startRow, startColumn, endRow, endColumn, allButtons,Game.currentNode,CustomButton.turn+1);
         boolean repeatChecker= false;
-        
+        boolean redoChecker = false;
         for(int i=0;i<Game.currentNode.childNodes.size();i++){
             if(Game.currentNode.childNodes.get(i).startRow == newNode.startRow && Game.currentNode.childNodes.get(i).startColumn == newNode.startColumn && Game.currentNode.childNodes.get(i).endRow == newNode.endRow && Game.currentNode.childNodes.get(i).endColumn == newNode.endColumn ){
                 repeatChecker=true;
+            }
+            if(Game.undoStack.isEmpty()){
+                break;
+            }
+            if(Game.currentNode.childNodes.get(i).startRow == Game.undoStack.peek().startRow && Game.currentNode.childNodes.get(i).startColumn == Game.undoStack.peek().startColumn && Game.currentNode.childNodes.get(i).endRow == Game.undoStack.peek().endRow && Game.currentNode.childNodes.get(i).endColumn == Game.undoStack.peek().endColumn ){
+                redoChecker=true;
                 break;
             }
         }
         if(!repeatChecker){
             Game.currentNode.childNodes.add(newNode);
         }
+        if(redoChecker){
+            Game.undoStack.pop();
+        }else{
+            Game.undoStack.clear();
+        }
         Game.currentNode= newNode;
+        newNode.skipButton.setOnAction(e -> newNode.timeSkip(gridPane, allButtons));
         new CustomButton(allButtons).fire();
+        for(int i=0;i<8;i++){
+            for(int j=0;j<8;j++){
+                if(allButtons[i][j].getClass()== new King(allButtons, team, redoChecker, teamMoves, allTeamMoves).getClass() && allButtons[i][j].team!=team){
+                    King enemyKing = (King)allButtons[i][j];
+                    if(staleMate(i,j,enemyKing.team, enemyKing.enemyTeamMoves)){
+                        if(checkKingMove(i, j,enemyKing.team, enemyKing.enemyTeamMoves)){
+                        AlertBox.show("congratulations", ""+player+" has won with checkMate");
+                        }else{
+                            Player player2;
+                            if(player.equals(Player.White)){
+                                player2 = Player.Black;
+                            }else{
+                                player2 = Player.White;
+                            }
+                            AlertBox.show("stale mate", "it's"+player2+"'s turn but there's no possible move");
+                        }
+                    }
+                }
+            }
+        }
+
+        
+    }
+}
+class Pawn extends CustomButton{
+    public boolean hasMoved = false;
+    Pawn(CustomButton allButtons[][],int team,boolean hasMoved,LinkedHashSet teamMoves){
+        super(allButtons,team,teamMoves);
+        this.hasMoved = hasMoved;
+        this.actionSet();
+        this.setText("PAWN");
+        if(team==2){
+        this.setStyle("-fx-background-color:blue;");
+        
+        }else{
+            this.setStyle("-fx-background-color:red;");
+        }
+    }
+    public void recolor(){
+        this.setStyle("-fx-background-color: blue;");
+    }
+    //  public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+        
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     allButtons[endRow][endColumn] = new Pawn(allButtons, team,true,allTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     Player player;
+    //     if(team==1){
+    //         player = Player.White;
+    //     }else{
+    //         player = Player.Black;
+    //     }
+    //     TreeNode newNode = new TreeNode(player, Piece.Pawn, startRow, startColumn, endRow, endColumn, allButtons,Game.currentNode,CustomButton.turn+1);
+    //     boolean repeatChecker= false;
+    //     boolean redoChecker = false;
+    //     for(int i=0;i<Game.currentNode.childNodes.size();i++){
+    //         if(Game.currentNode.childNodes.get(i).startRow == newNode.startRow && Game.currentNode.childNodes.get(i).startColumn == newNode.startColumn && Game.currentNode.childNodes.get(i).endRow == newNode.endRow && Game.currentNode.childNodes.get(i).endColumn == newNode.endColumn ){
+    //             repeatChecker=true;
+    //         }
+    //         if(Game.currentNode.childNodes.get(i).startRow == Game.undoStack.peek().startRow && Game.currentNode.childNodes.get(i).startColumn == Game.undoStack.peek().startColumn && Game.currentNode.childNodes.get(i).endRow == Game.undoStack.peek().endRow && Game.currentNode.childNodes.get(i).endColumn == Game.undoStack.peek().endColumn ){
+    //             redoChecker=true;
+    //             break;
+    //         }
+    //     }
+    //     if(!repeatChecker){
+    //         Game.currentNode.childNodes.add(newNode);
+    //     }
+    //     if(redoChecker){
+    //         Game.undoStack.pop();
+    //     }else{
+    //         Game.undoStack.clear();
+    //     }
+    //     Game.currentNode= newNode;
+    //     new CustomButton(allButtons).fire();
         
         
-    };
+    // };
     public void actionSet(){
         this.setOnAction(e ->{
             
@@ -699,8 +892,8 @@ class Pawn extends CustomButton{
                                         
                                         allButtons[i+1][j-1].setOnAction(new EventHandler<ActionEvent>() {
                                             public void handle(ActionEvent arg0) {
-                                                movePiece(team, I, J, I, J-1);
-                                                movePiece(team, I, J-1, I+1, J-1);
+                                                movePiece(team, I, J, I, J-1,Piece.Pawn);
+                                                movePiece(team, I, J-1, I+1, J-1,Piece.Pawn);
                                                 // gridPane.getChildren().remove(allButtons[I + 1][J - 1]);
                                                 // gridPane.getChildren().remove(allButtons[I][J]);
                                                 // gridPane.getChildren().remove(allButtons[I][J - 1]);
@@ -727,8 +920,8 @@ class Pawn extends CustomButton{
                                         allButtons[i+1][j+1].setOnAction(new EventHandler<ActionEvent>() {
                                             
                                             public void handle(ActionEvent arg0) {
-                                                movePiece(team, I, J, I, J+1);
-                                                movePiece(team, I, J+1, I+1, J+1);
+                                                movePiece(team, I, J, I, J+1, Piece.Pawn);
+                                                movePiece(team, I, J+1, I+1, J+1,Piece.Pawn);
 
 
                                                 // gridPane.getChildren().remove(allButtons[I + 1][J + 1]);
@@ -756,7 +949,7 @@ class Pawn extends CustomButton{
                                 allButtons[i+1][j].setStyle("-fx-background-color: rgb(77,166,255);");
                                     allButtons[i+1][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                             movePiece(team, I, J, I+1, J);
+                                             movePiece(team, I, J, I+1, J,Piece.Pawn);
                                              turn++;
                                              
                                         }
@@ -769,7 +962,7 @@ class Pawn extends CustomButton{
                                     allButtons[i+2][j].setStyle("-fx-background-color: rgb(177,166,255);");    
                                     allButtons[i+2][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I+2, J);
+                                            movePiece(team, I, J, I+2, J,Piece.Pawn);
                                              if(J-1>=0){
                                                  if(allButtons[I+2][J-1].getClass()== new Pawn(allButtons,team,true,teamMoves).getClass()){
                                                     allButtons[I+2][J-1].En_Passant_right= true;
@@ -796,7 +989,7 @@ class Pawn extends CustomButton{
                                 allButtons[i+1][j-1].setStyle("-fx-background-color: red;");
                                     allButtons[i+1][j-1].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                             movePiece(team, I, J, I+1, J-1);
+                                             movePiece(team, I, J, I+1, J-1,Piece.Pawn);
 
                                              turn++;
                                         }
@@ -813,7 +1006,7 @@ class Pawn extends CustomButton{
                                 allButtons[i+1][j+1].setStyle("-fx-background-color: red;");
                                     allButtons[i+1][j+1].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I+1, J+1);
+                                            movePiece(team, I, J, I+1, J+1,Piece.Pawn);
                                              turn++;
                                         }
                                     });
@@ -832,8 +1025,8 @@ class Pawn extends CustomButton{
                                         allButtons[i-1][j-1].setStyle("-fx-background-color: rgb(230,166,255);");
                                         allButtons[i-1][j-1].setOnAction(new EventHandler<ActionEvent>() {
                                             public void handle(ActionEvent arg0) {
-                                                movePiece(team, I, J, I, J-1);
-                                                movePiece(team, I, J-1, I-1, J-1);
+                                                movePiece(team, I, J, I, J-1,Piece.Pawn);
+                                                movePiece(team, I, J-1, I-1, J-1,Piece.Pawn);
                                                 // gridPane.getChildren().remove(allButtons[I - 1][J - 1]);
                                                 // gridPane.getChildren().remove(allButtons[I][J]);
                                                 // gridPane.getChildren().remove(allButtons[I][J - 1]);
@@ -859,8 +1052,8 @@ class Pawn extends CustomButton{
                                         allButtons[i-1][j+1].setStyle("-fx-background-color: rgb(230,166,255);");
                                         allButtons[i-1][j+1].setOnAction(new EventHandler<ActionEvent>() {
                                             public void handle(ActionEvent arg0) {
-                                                movePiece(team, I, J, I, J+1);
-                                                movePiece(team, I, J+1, I-1, J+1);
+                                                movePiece(team, I, J, I, J+1,Piece.Pawn);
+                                                movePiece(team, I, J+1, I-1, J+1,Piece.Pawn);
 
 
                                                 // gridPane.getChildren().remove(allButtons[I - 1][J + 1]);
@@ -887,7 +1080,7 @@ class Pawn extends CustomButton{
                                     allButtons[i-1][j].setStyle("-fx-background-color: rgb(77,166,255);");
                                     allButtons[i-1][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I-1, J);
+                                            movePiece(team, I, J, I-1, J,Piece.Pawn);
                                              turn++;
                                              
                                         }
@@ -899,7 +1092,7 @@ class Pawn extends CustomButton{
                                         allButtons[i-2][j].setStyle("-fx-background-color: rgb(177,166,255);");
                                     allButtons[i-2][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I-2, J);
+                                            movePiece(team, I, J, I-2, J,Piece.Pawn);
                                              if(J-1>=0){
                                                 if(allButtons[I-2][J-1].getClass()== new Pawn(allButtons,team,true,teamMoves).getClass()){
                                                     allButtons[I-2][J-1].En_Passant_right= true;
@@ -925,7 +1118,7 @@ class Pawn extends CustomButton{
                                 allButtons[i-1][j-1].setStyle("-fx-background-color: red;");
                                     allButtons[i-1][j-1].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I-1, J-1);
+                                            movePiece(team, I, J, I-1, J-1,Piece.Pawn);
                                              turn++;
                                         }
                                     });
@@ -940,7 +1133,7 @@ class Pawn extends CustomButton{
                                 allButtons[i-1][j+1].setStyle("-fx-background-color: red;");
                                     allButtons[i-1][j+1].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, I, J, I-1, J+1);
+                                            movePiece(team, I, J, I-1, J+1,Piece.Pawn);
                                              turn++;
                                         }
                                     });
@@ -972,22 +1165,42 @@ class Pawn extends CustomButton{
                     if(allButtons[i][j].equals(this)){
                         if(this.team==2){
                             if(i<7){
+                                if(allButtons[i+1][j].team==0){
+                                    teamMoves.add(((i+1)*10)+j);
+                                    if(allButtons[i+2][j].team==0){
+                                    teamMoves.add(((i+2)*10)+j);
+                                    }
+                                }
                             if(j>0){
+                                if(allButtons[i+1][j-1].team!=0){
                                 teamMoves.add(((i+1)*10)+j-1);
+                                }
 
                         }   
                             if(j<7){
+                                if(allButtons[i+1][j+1].team!=0){
                                 teamMoves.add(((i+1)*10)+j+1);
+                                }
                             }
                         }
                         }else{
                             if(i>0){
+                                if(allButtons[i-1][j].team==0){
+                                    teamMoves.add(((i-1)*10)+j);
+                                    if(allButtons[i-2][j].team==0){
+                                    teamMoves.add(((i-2)*10)+j);
+                                    }
+                                }
                             if(j>0){
+                                if(allButtons[i-1][j-1].team!=0){
                                 teamMoves.add(((i-1)*10)+j-1);
+                                }
 
                         }   if(j<7){
 
+                                if(allButtons[i-1][j+1].team!=0){
                                 teamMoves.add(((i-1)*10)+j+1);
+                                }
                             
                         }
                             }
@@ -1009,51 +1222,51 @@ class Bishop extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: silver;");
     }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
-        HBox leftBox =(HBox)borderPane.getChildren().get(1);
-        VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
-        VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
-        HBox rightBox =(HBox)borderPane.getChildren().get(2);
-        VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
-        VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
-        HBox topBox = (HBox)borderPane.getChildren().get(3);
-        Label timeLabel = (Label)topBox.getChildren().get(0);
-        timeLabel.setText("30");
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
-            if(team==1){
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftRightSide.getChildren().size()<9){
-                    leftRightSide.getChildren().add(label);
-                }else{
-                    rightRightSide.getChildren().add(label);
-                }
-            }else{
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftLeftSide.getChildren().size()<9){
-                    leftLeftSide.getChildren().add(label);
-                }else{
-                    rightLeftSide.getChildren().add(label);
-                }
-            }
-        }
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        allButtons[endRow][endColumn] = new Bishop(allButtons, team,allTeamMoves);
-        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
-        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
-        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
-        for (int i=0;i<8;i++) {
-            for(int j=0;j<8;j++){
-                allButtons[i][j].En_Passant_left=false;
-                allButtons[i][j].En_Passant_right=false;
-            }
-        }
-        new CustomButton(allButtons).fire();
-    };
+    // public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     allButtons[endRow][endColumn] = new Bishop(allButtons, team,allTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     new CustomButton(allButtons).fire();
+    // };
     public void actionSet(){
         this.setOnAction(e ->{
             
@@ -1081,7 +1294,7 @@ class Bishop extends CustomButton{
                 color+=50;
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;         
                                         }
                                     });
@@ -1099,7 +1312,7 @@ class Bishop extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                              
@@ -1127,7 +1340,7 @@ class Bishop extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                             movePiece(team, Y, X, I, J);
+                                             movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                              
@@ -1146,7 +1359,7 @@ class Bishop extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                             movePiece(team, Y, X, I, J);
+                                             movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                              
@@ -1174,7 +1387,7 @@ class Bishop extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                         }
@@ -1192,7 +1405,7 @@ class Bishop extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                         }
@@ -1219,7 +1432,7 @@ class Bishop extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                         }
@@ -1237,7 +1450,7 @@ class Bishop extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Bishop);
                                              turn++;
                                              
                                         }
@@ -1344,51 +1557,51 @@ class Knight extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: purple;");
     }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
-        HBox leftBox =(HBox)borderPane.getChildren().get(1);
-        VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
-        VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
-        HBox rightBox =(HBox)borderPane.getChildren().get(2);
-        VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
-        VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
-        HBox topBox = (HBox)borderPane.getChildren().get(3);
-        Label timeLabel = (Label)topBox.getChildren().get(0);
-        timeLabel.setText("30");
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
-            if(team==1){
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftRightSide.getChildren().size()<9){
-                    leftRightSide.getChildren().add(label);
-                }else{
-                    rightRightSide.getChildren().add(label);
-                }
-            }else{
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftLeftSide.getChildren().size()<9){
-                    leftLeftSide.getChildren().add(label);
-                }else{
-                    rightLeftSide.getChildren().add(label);
-                }
-            }
-        }
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        allButtons[endRow][endColumn] = new Knight(allButtons, team,allTeamMoves);
-        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
-        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
-        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
-        for (int i=0;i<8;i++) {
-            for(int j=0;j<8;j++){
-                allButtons[i][j].En_Passant_left=false;
-                allButtons[i][j].En_Passant_right=false;
-            }
-        }
-        new CustomButton(allButtons).fire();
-    };
+    // public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     allButtons[endRow][endColumn] = new Knight(allButtons, team,allTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     new CustomButton(allButtons).fire();
+    // };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -1414,7 +1627,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1435,7 +1648,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                             movePiece(team, Y, X, I, J);
+                                             movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1456,7 +1669,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                             movePiece(team, Y, X, I, J);
+                                             movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1477,7 +1690,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1498,7 +1711,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1519,7 +1732,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1541,7 +1754,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1562,7 +1775,7 @@ class Knight extends CustomButton{
                                 allButtons[I][J].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Knight);
                                              turn++;
                                              
                                         }
@@ -1667,51 +1880,51 @@ class Queen extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: pink;");
     }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
-        HBox leftBox =(HBox)borderPane.getChildren().get(1);
-        VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
-        VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
-        HBox rightBox =(HBox)borderPane.getChildren().get(2);
-        VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
-        VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
-        HBox topBox = (HBox)borderPane.getChildren().get(3);
-        Label timeLabel = (Label)topBox.getChildren().get(0);
-        timeLabel.setText("30");
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
-            if(team==1){
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftRightSide.getChildren().size()<9){
-                    leftRightSide.getChildren().add(label);
-                }else{
-                    rightRightSide.getChildren().add(label);
-                }
-            }else{
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftLeftSide.getChildren().size()<9){
-                    leftLeftSide.getChildren().add(label);
-                }else{
-                    rightLeftSide.getChildren().add(label);
-                }
-            }
-        }
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        allButtons[endRow][endColumn] = new Queen(allButtons, team,allTeamMoves);
-        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
-        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
-        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
-        for (int i=0;i<8;i++) {
-            for(int j=0;j<8;j++){
-                allButtons[i][j].En_Passant_left=false;
-                allButtons[i][j].En_Passant_right=false;
-            }
-        }
-        new CustomButton(allButtons).fire();
-    };
+    // public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     allButtons[endRow][endColumn] = new Queen(allButtons, team,allTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     new CustomButton(allButtons).fire();
+    // };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -1738,7 +1951,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1753,7 +1966,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1780,7 +1993,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1795,7 +2008,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                             turn++; 
                                              
                                         }
@@ -1821,7 +2034,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1836,7 +2049,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1861,7 +2074,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1876,7 +2089,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1902,7 +2115,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1917,7 +2130,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1943,7 +2156,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1958,7 +2171,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1983,7 +2196,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -1998,7 +2211,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -2023,7 +2236,7 @@ class Queen extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                              turn++;
                                              
                                         }
@@ -2038,7 +2251,7 @@ class Queen extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Queen);
                                             turn++; 
                                              
                                         }
@@ -2209,51 +2422,51 @@ class Rook extends CustomButton{
     public void recolor(){
         this.setStyle("-fx-background-color: orange;");
     }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
-        HBox leftBox =(HBox)borderPane.getChildren().get(1);
-        VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
-        VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
-        HBox rightBox =(HBox)borderPane.getChildren().get(2);
-        VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
-        VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
-        HBox topBox = (HBox)borderPane.getChildren().get(3);
-        Label timeLabel = (Label)topBox.getChildren().get(0);
-        timeLabel.setText("30");
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
-            if(team==1){
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftRightSide.getChildren().size()<9){
-                    leftRightSide.getChildren().add(label);
-                }else{
-                    rightRightSide.getChildren().add(label);
-                }
-            }else{
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftLeftSide.getChildren().size()<9){
-                    leftLeftSide.getChildren().add(label);
-                }else{
-                    rightLeftSide.getChildren().add(label);
-                }
-            }
-        }
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        allButtons[endRow][endColumn] = new Rook(allButtons, team,true,allTeamMoves);
-        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
-        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
-        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
-        for (int i=0;i<8;i++) {
-            for(int j=0;j<8;j++){
-                allButtons[i][j].En_Passant_left=false;
-                allButtons[i][j].En_Passant_right=false;
-            }
-        }
-        new CustomButton(allButtons).fire();
-    };
+    // public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     allButtons[endRow][endColumn] = new Rook(allButtons, team,true,allTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     new CustomButton(allButtons).fire();
+    // };
     public void actionSet(){
         this.setOnAction(e ->{
             new CustomButton(allButtons).fire();
@@ -2279,7 +2492,7 @@ class Rook extends CustomButton{
                 color+=50;
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                             movePiece(team, Y, X, I, J);
+                                             movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                         }
                                     });
@@ -2292,7 +2505,7 @@ class Rook extends CustomButton{
                                     allButtons[i][j].setStyle("-fx-background-color:red;");
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2321,7 +2534,7 @@ class Rook extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2336,7 +2549,7 @@ class Rook extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2363,7 +2576,7 @@ class Rook extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2378,7 +2591,7 @@ class Rook extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2405,7 +2618,7 @@ class Rook extends CustomButton{
                 allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2420,7 +2633,7 @@ class Rook extends CustomButton{
                                     allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
                                             
-                                            movePiece(team, Y, X, I, J);
+                                            movePiece(team, Y, X, I, J,Piece.Rook);
                                              turn++;
                                              
                                         }
@@ -2536,51 +2749,51 @@ class King extends CustomButton{
         }
         
     }
-    public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
-        HBox leftBox =(HBox)borderPane.getChildren().get(1);
-        VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
-        VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
-        HBox rightBox =(HBox)borderPane.getChildren().get(2);
-        VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
-        VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
-        HBox topBox = (HBox)borderPane.getChildren().get(3);
-        Label timeLabel = (Label)topBox.getChildren().get(0);
-        timeLabel.setText("30");
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
-            if(team==1){
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftRightSide.getChildren().size()<9){
-                    leftRightSide.getChildren().add(label);
-                }else{
-                    rightRightSide.getChildren().add(label);
-                }
-            }else{
-                Label label = new Label();
-                label.setText(allButtons[endRow][endColumn].getText());
-                if(leftLeftSide.getChildren().size()<9){
-                    leftLeftSide.getChildren().add(label);
-                }else{
-                    rightLeftSide.getChildren().add(label);
-                }
-            }
-        }
-        gridPane.getChildren().remove(allButtons[endRow][endColumn]);
-        gridPane.getChildren().remove(allButtons[startRow][startColumn]);
-        allButtons[endRow][endColumn] = new King(allButtons, team,true,allTeamMoves,enemyTeamMoves);
-        allButtons[startRow][startColumn] = new CustomButton(allButtons);  
-        gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
-        gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
-        for (int i=0;i<8;i++) {
-            for(int j=0;j<8;j++){
-                allButtons[i][j].En_Passant_left=false;
-                allButtons[i][j].En_Passant_right=false;
-            }
-        }
-        new CustomButton(allButtons).fire();
-    };
+    // public void movePiece(int team,int startRow,int startColumn,int endRow,int endColumn){
+    //     HBox leftBox =(HBox)borderPane.getChildren().get(1);
+    //     VBox leftLeftSide = (VBox)leftBox.getChildren().get(0);
+    //     VBox rightLeftSide  = (VBox)leftBox.getChildren().get(1);
+    //     HBox rightBox =(HBox)borderPane.getChildren().get(2);
+    //     VBox leftRightSide= (VBox)rightBox.getChildren().get(0);
+    //     VBox rightRightSide = (VBox)rightBox.getChildren().get(1);
+    //     HBox topBox = (HBox)borderPane.getChildren().get(3);
+    //     Label timeLabel = (Label)topBox.getChildren().get(0);
+    //     timeLabel.setText("30");
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     if(allButtons[endRow][endColumn].getClass()!= new CustomButton(allButtons).getClass()){
+    //         if(team==1){
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftRightSide.getChildren().size()<9){
+    //                 leftRightSide.getChildren().add(label);
+    //             }else{
+    //                 rightRightSide.getChildren().add(label);
+    //             }
+    //         }else{
+    //             Label label = new Label();
+    //             label.setText(allButtons[endRow][endColumn].getText());
+    //             if(leftLeftSide.getChildren().size()<9){
+    //                 leftLeftSide.getChildren().add(label);
+    //             }else{
+    //                 rightLeftSide.getChildren().add(label);
+    //             }
+    //         }
+    //     }
+    //     gridPane.getChildren().remove(allButtons[endRow][endColumn]);
+    //     gridPane.getChildren().remove(allButtons[startRow][startColumn]);
+    //     allButtons[endRow][endColumn] = new King(allButtons, team,true,allTeamMoves,enemyTeamMoves);
+    //     allButtons[startRow][startColumn] = new CustomButton(allButtons);  
+    //     gridPane.add(allButtons[endRow][endColumn], endColumn, endRow);
+    //     gridPane.add(allButtons[startRow][startColumn], startColumn, startRow);
+    //     for (int i=0;i<8;i++) {
+    //         for(int j=0;j<8;j++){
+    //             allButtons[i][j].En_Passant_left=false;
+    //             allButtons[i][j].En_Passant_right=false;
+    //         }
+    //     }
+    //     new CustomButton(allButtons).fire();
+    // };
     public void actionSet(){
 
         this.setOnAction(e ->{
@@ -2628,9 +2841,9 @@ class King extends CustomButton{
                                     allButtons[rookRow][leftRookColumn+2].setStyle("-fx-background-color:rgb(85,255,0)");
                                     allButtons[rookRow][leftRookColumn+2].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, Y, X, Y, X-2);
+                                            movePiece(team, Y, X, Y, X-2,Piece.King);
                                             Rook x =(Rook)allButtons[rookRow][leftRookColumn];
-                                            x.movePiece(team, rookRow, leftRookColumn, Y, X-1);
+                                            x.movePiece(team, rookRow, leftRookColumn, Y, X-1,Piece.Rook);
                                             // gridPane.getChildren().remove(allButtons[Y][X]);
                                             // gridPane.getChildren().remove(allButtons[Y][X-1]);
                                             // gridPane.getChildren().remove(allButtons[Y][X-2]);
@@ -2667,9 +2880,9 @@ class King extends CustomButton{
                                     allButtons[rookRow][rightRookColumn-2].setStyle("-fx-background-color:rgb(85,255,0)");
                                     allButtons[rookRow][rightRookColumn-1].setOnAction(new EventHandler<ActionEvent>() {
                                         public void handle(ActionEvent arg0){
-                                            movePiece(team, Y, X, Y, X+2);
+                                            movePiece(team, Y, X, Y, X+2,Piece.King);
                                             Rook x =(Rook)allButtons[rookRow][rightRookColumn];
-                                            x.movePiece(team, rookRow, rightRookColumn, Y, X+1);
+                                            x.movePiece(team, rookRow, rightRookColumn, Y, X+1,Piece.Rook);
                                             // gridPane.getChildren().remove(allButtons[Y][X]);
                                             // gridPane.getChildren().remove(allButtons[Y][X+1]);
                                             // gridPane.getChildren().remove(allButtons[Y][X+2]);
@@ -2716,7 +2929,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
                                  
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 
                                     turn++;                   
                                 }
@@ -2727,7 +2940,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
 ;
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 ;
                                     turn++;                
                                 }
@@ -2762,7 +2975,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
 ;
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 ;
                                      turn++;               
                                 }
@@ -2773,7 +2986,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
 ;
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 ;
                                      turn++;               
                                 }
@@ -2807,7 +3020,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
 
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 
                                     turn++;                
                                 }
@@ -2818,7 +3031,7 @@ class King extends CustomButton{
                             allButtons[i][j].setOnAction(new EventHandler<ActionEvent>() {
                                 public void handle(ActionEvent arg0){
 ;
-                                movePiece(team, Y, X, I, J);
+                                movePiece(team, Y, X, I, J,Piece.King);
 ;
                                     turn++;                
                                 }
